@@ -1,1 +1,10 @@
 project_id = "uobbaqohcnjsnjeqasqz"
+
+[functions.generate-logs]
+verify_jwt = false
+
+[functions.demo-login]
+verify_jwt = false
+
+[functions.ai-analyze]
+verify_jwt = false
