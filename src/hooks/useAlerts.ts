@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useCallback } from "react";
 import { isSupabaseConfigured } from "@/lib/authMode";
 import { getStoredAuthMode } from "@/lib/authContext";
@@ -55,7 +56,6 @@ export function useAlerts(stats: { cpu: number; memory: number; disk: number }) 
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { data, error } = await supabase.from("alerts").select("*").order("created_at", { ascending: false }).limit(100);
       if (!error && data) {
         const alertData = data.length > 0 ? (data as Alert[]) : generateMockAlerts(12);
@@ -81,7 +81,6 @@ export function useAlerts(stats: { cpu: number; memory: number; disk: number }) 
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { data, error } = await supabase.from("alert_rules").select("*").order("created_at", { ascending: true });
       if (!error && data && data.length > 0) {
         setRules(data as AlertRule[]);
@@ -102,7 +101,6 @@ export function useAlerts(stats: { cpu: number; memory: number; disk: number }) 
     let alertCh: any, rulesCh: any;
     (async () => {
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
         alertCh = supabase.channel("alerts-rt").on("postgres_changes", { event: "*", schema: "public", table: "alerts" }, () => fetchAlerts()).subscribe();
         rulesCh = supabase.channel("rules-rt").on("postgres_changes", { event: "*", schema: "public", table: "alert_rules" }, () => fetchRules()).subscribe();
       } catch {}
@@ -166,7 +164,6 @@ export function useAlerts(stats: { cpu: number; memory: number; disk: number }) 
       return;
     }
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("alerts").update({ acknowledged: true, acknowledged_by: user?.id || null, acknowledged_at: new Date().toISOString() }).eq("id", id);
       fetchAlerts();
@@ -181,7 +178,6 @@ export function useAlerts(stats: { cpu: number; memory: number; disk: number }) 
       return;
     }
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { data: { user } } = await supabase.auth.getUser();
       await supabase.from("alerts").update({ acknowledged: true, acknowledged_by: user?.id || null, acknowledged_at: new Date().toISOString() }).eq("acknowledged", false);
       fetchAlerts();
@@ -197,7 +193,6 @@ export function useAlerts(stats: { cpu: number; memory: number; disk: number }) 
       return;
     }
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase.from("alert_rules").insert({ ...rule, created_by: user?.id || null });
       if (error) toast.error("Failed to add rule"); else toast.success("Alert rule added");
@@ -210,7 +205,6 @@ export function useAlerts(stats: { cpu: number; memory: number; disk: number }) 
       return;
     }
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.from("alert_rules").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id);
       if (error) toast.error("Failed to update rule");
     } catch {}
@@ -223,7 +217,6 @@ export function useAlerts(stats: { cpu: number; memory: number; disk: number }) 
       return;
     }
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.from("alert_rules").delete().eq("id", id);
       if (error) toast.error("Failed to delete rule"); else toast.success("Alert rule deleted");
     } catch {}
