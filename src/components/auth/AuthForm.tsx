@@ -37,7 +37,6 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
     setError(""); setMessage(""); setSubmitting(true);
     try {
       if (isForgotPassword) {
-        const { supabase } = await import("@/integrations/supabase/client");
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/reset-password`,
         });
