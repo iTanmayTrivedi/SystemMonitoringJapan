@@ -134,11 +134,10 @@ export function useAuth() {
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return { error };
     } catch (err: any) {
-      return { error: { message: "Network error — please check your connection." } as any };
+      return { error: { message: err?.message || "Network error — please check your connection." } as any };
     }
   }, [authMode, demoSignIn]);
 
