@@ -213,7 +213,6 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
                 onClick={async () => {
                   setError(""); setMessage(""); setSubmitting(true);
                   try {
-                    const { supabase } = await import("@/integrations/supabase/client");
                     const { error } = await supabase.auth.signInWithOAuth({
                       provider: "google",
                       options: { redirectTo: window.location.origin },
