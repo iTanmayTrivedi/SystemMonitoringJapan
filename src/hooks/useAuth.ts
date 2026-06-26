@@ -172,7 +172,6 @@ export function useAuth() {
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       await supabase.auth.signOut();
     } catch {
       // Force local cleanup
