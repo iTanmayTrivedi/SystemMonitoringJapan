@@ -211,11 +211,12 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
                 onClick={async () => {
                   setError(""); setMessage(""); setSubmitting(true);
                   try {
-                    const { lovable } = await import("@/integrations/lovable/index");
-                    const result = await lovable.auth.signInWithOAuth("google", {
-                      redirect_uri: window.location.origin,
+                    const { supabase } = await import("@/integrations/supabase/client");
+                    const { error } = await supabase.auth.signInWithOAuth({
+                      provider: "google",
+                      options: { redirectTo: window.location.origin },
                     });
-                    if (result.error) setError(formatAuthError(result.error));
+                    if (error) setError(formatAuthError(error));
                   } catch (err: any) {
                     setError(formatAuthError(err));
                   }
