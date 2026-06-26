@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Shield, Eye, Users, WifiOff, Wifi, ArrowLeft } from "lucide-react";
 import { DEMO_USERS } from "@/lib/mockData";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthFormProps {
   onSuccess?: () => void;
