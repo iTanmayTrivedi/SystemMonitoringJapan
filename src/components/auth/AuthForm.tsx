@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, Shield, Eye, Users, WifiOff, Wifi, ArrowLeft } from "lucide-react";
 import { DEMO_USERS } from "@/lib/mockData";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AuthFormProps {
   onSuccess?: () => void;
@@ -24,8 +25,10 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
   const formatAuthError = (err: any) => {
     const msg = String(err?.message || "");
     const lower = msg.toLowerCase();
-    if (lower.includes("failed to fetch") || lower.includes("network")) return "Cannot reach server. Try demo mode.";
-    if (lower.includes("401")) return "Invalid email or password.";
+    if (lower.includes("invalid login") || lower.includes("invalid credentials") || lower.includes("401")) return "Invalid email or password.";
+    if (lower.includes("email not confirmed")) return "Please confirm your email before signing in.";
+    if (lower.includes("user already registered")) return "An account with this email already exists.";
+    if (lower.includes("failed to fetch") || lower.includes("network")) return "Cannot reach server. Check your connection or use demo mode.";
     return msg || "Authentication failed.";
   };
 
@@ -34,7 +37,6 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
     setError(""); setMessage(""); setSubmitting(true);
     try {
       if (isForgotPassword) {
-        const { supabase } = await import("@/integrations/supabase/client");
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/reset-password`,
         });
@@ -211,7 +213,6 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
                 onClick={async () => {
                   setError(""); setMessage(""); setSubmitting(true);
                   try {
-                    const { supabase } = await import("@/integrations/supabase/client");
                     const { error } = await supabase.auth.signInWithOAuth({
                       provider: "google",
                       options: { redirectTo: window.location.origin },

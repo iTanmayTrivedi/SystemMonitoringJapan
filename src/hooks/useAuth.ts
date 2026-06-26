@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { isSupabaseConfigured, type AuthMode } from "@/lib/authMode";
 import { getStoredAuthMode, setStoredAuthMode, getDemoSession, setDemoSession, clearDemoSession } from "@/lib/authContext";
 import { DEMO_USERS, type DemoUser } from "@/lib/mockData";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AppRole = "admin" | "viewer" | "user";
 
@@ -53,8 +54,6 @@ export function useAuth() {
 
     const initSupabase = async () => {
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
-
         // Listener first
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
           if (!mounted) return;
@@ -106,11 +105,7 @@ export function useAuth() {
         };
       } catch (err) {
         console.warn("[useAuth] Supabase init failed:", err);
-        if (mounted) {
-          // Don't auto-switch to demo if user explicitly chose "real" mode
-          // Just stop loading and let them retry or switch manually
-          setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
     };
 
@@ -139,11 +134,10 @@ export function useAuth() {
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return { error };
     } catch (err: any) {
-      return { error: { message: "Network error — please check your connection." } as any };
+      return { error: { message: err?.message || "Network error — please check your connection." } as any };
     }
   }, [authMode, demoSignIn]);
 
@@ -154,7 +148,6 @@ export function useAuth() {
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -165,7 +158,7 @@ export function useAuth() {
       });
       return { error };
     } catch (err: any) {
-      return { error: { message: "Network error — please check your connection." } as any };
+      return { error: { message: err?.message || "Network error — please check your connection." } as any };
     }
   }, [authMode]);
 
@@ -179,7 +172,6 @@ export function useAuth() {
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       await supabase.auth.signOut();
     } catch {
       // Force local cleanup
