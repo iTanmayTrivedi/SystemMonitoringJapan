@@ -25,8 +25,10 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
   const formatAuthError = (err: any) => {
     const msg = String(err?.message || "");
     const lower = msg.toLowerCase();
-    if (lower.includes("failed to fetch") || lower.includes("network")) return "Cannot reach server. Try demo mode.";
-    if (lower.includes("401")) return "Invalid email or password.";
+    if (lower.includes("invalid login") || lower.includes("invalid credentials") || lower.includes("401")) return "Invalid email or password.";
+    if (lower.includes("email not confirmed")) return "Please confirm your email before signing in.";
+    if (lower.includes("user already registered")) return "An account with this email already exists.";
+    if (lower.includes("failed to fetch") || lower.includes("network")) return "Cannot reach server. Check your connection or use demo mode.";
     return msg || "Authentication failed.";
   };
 
