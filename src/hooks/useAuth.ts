@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { isSupabaseConfigured, type AuthMode } from "@/lib/authMode";
 import { getStoredAuthMode, setStoredAuthMode, getDemoSession, setDemoSession, clearDemoSession } from "@/lib/authContext";
 import { DEMO_USERS, type DemoUser } from "@/lib/mockData";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AppRole = "admin" | "viewer" | "user";
 
