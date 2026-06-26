@@ -54,8 +54,6 @@ export function useAuth() {
 
     const initSupabase = async () => {
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
-
         // Listener first
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
           if (!mounted) return;
@@ -107,11 +105,7 @@ export function useAuth() {
         };
       } catch (err) {
         console.warn("[useAuth] Supabase init failed:", err);
-        if (mounted) {
-          // Don't auto-switch to demo if user explicitly chose "real" mode
-          // Just stop loading and let them retry or switch manually
-          setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
     };
 
