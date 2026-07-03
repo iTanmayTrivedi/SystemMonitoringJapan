@@ -43,9 +43,10 @@ export function AuthForm({ onSuccess }: AuthFormProps) {
         if (error) setError(formatAuthError(error));
         else setMessage("Password reset link sent! Check your email.");
       } else if (isSignUp) {
-        const { error } = await signUp(email, password, selectedRole);
+        const { error, needsEmailConfirmation } = await signUp(email, password, selectedRole);
         if (error) setError(formatAuthError(error));
-        else setMessage("Check your email to confirm your account.");
+        else if (needsEmailConfirmation) setMessage("Check your email to confirm your account.");
+        else onSuccess?.();
       } else {
         const { error } = await signIn(email, password);
         if (error) setError(formatAuthError(error));
