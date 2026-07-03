@@ -206,10 +206,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      initialize_current_user: {
-        Args: { _desired_role?: Database["public"]["Enums"]["app_role"] }
-        Returns: undefined
-      }
     }
     Enums: {
       alert_severity: "warning" | "error" | "critical"
