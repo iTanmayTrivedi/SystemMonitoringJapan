@@ -33,27 +33,37 @@ alter table public.profiles enable row level security;
 drop policy if exists "Users can view own profile" on public.profiles;
 create policy "Users can view own profile" on public.profiles
   for select using (auth.uid() = user_id);
+drop policy if exists "Users can insert own profile" on public.profiles;
+create policy "Users can insert own profile" on public.profiles
+  for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "Users can update own profile" on public.profiles;
+create policy "Users can update own profile" on public.profiles
+  for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- user_roles ----------------------------------------------------------------
 create table if not exists public.user_roles (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   role public.app_role not null default 'user',
-  unique (user_id, role)
+  unique (user_id, role),
+  unique (user_id)
 );
-grant select on public.user_roles to authenticated;
+grant select, insert on public.user_roles to authenticated;
 grant all on public.user_roles to service_role;
 alter table public.user_roles enable row level security;
 drop policy if exists "Users can view own roles" on public.user_roles;
 create policy "Users can view own roles" on public.user_roles
   for select using (auth.uid() = user_id);
+drop policy if exists "Users can create own initial role" on public.user_roles;
+create policy "Users can create own initial role" on public.user_roles
+  for insert to authenticated with check (auth.uid() = user_id);
 
--- has_role() — SECURITY DEFINER avoids RLS recursion ------------------------
+-- has_role() ----------------------------------------------------------------
 create or replace function public.has_role(_user_id uuid, _role public.app_role)
 returns boolean
 language sql
 stable
-security definer
+security invoker
 set search_path = public
 as $$
   select exists (
@@ -61,6 +71,8 @@ as $$
     where user_id = _user_id and role = _role
   )
 $$;
+grant execute on function public.has_role(uuid, public.app_role) to authenticated;
+revoke execute on function public.has_role(uuid, public.app_role) from anon;
 
 -- system_logs ---------------------------------------------------------------
 create table if not exists public.system_logs (
@@ -167,47 +179,12 @@ create policy "Admins can insert metric snapshots" on public.metric_snapshots
   for insert with check (public.has_role(auth.uid(), 'admin'));
 
 -- ============================================================================
--- AUTH TRIGGER — auto-create profile + role on signup
--- Reads `desired_role` from user metadata (set during signUp).
--- ============================================================================
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  desired_role public.app_role;
-begin
-  insert into public.profiles (user_id, email)
-  values (new.id, new.email)
-  on conflict (user_id) do nothing;
-
-  desired_role := coalesce(
-    (new.raw_user_meta_data->>'desired_role')::public.app_role,
-    'user'::public.app_role
-  );
-
-  insert into public.user_roles (user_id, role)
-  values (new.id, desired_role)
-  on conflict (user_id, role) do nothing;
-
-  return new;
-end;
-$$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
-
--- ============================================================================
 -- REALTIME — enable live updates for dashboard
 -- ============================================================================
 alter publication supabase_realtime add table public.system_logs;
 alter publication supabase_realtime add table public.alerts;
 alter publication supabase_realtime add table public.metric_snapshots;
 
--- Done. Sign up via the app — your first user will get the role you pick
--- in the sign-up form (admin / viewer). To promote a user manually:
+-- Done. Sign up via the app — the app creates the profile and role after
+-- Supabase returns a signed-in session. To promote a user manually:
 --   insert into public.user_roles(user_id, role) values ('<uuid>', 'admin');
