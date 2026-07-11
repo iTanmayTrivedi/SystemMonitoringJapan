@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { isSupabaseConfigured } from "@/lib/authMode";
 import { getStoredAuthMode } from "@/lib/authContext";
@@ -41,7 +42,6 @@ export function useMetricHistory(liveHistory: StatsSnapshot[], currentStats: { c
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const now = new Date();
       const since = range === "1h" ? new Date(now.getTime() - 3600000)
         : range === "24h" ? new Date(now.getTime() - 86400000)

@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,6 @@ export default function ResetPassword() {
     let cleanup: (() => void) | undefined;
     (async () => {
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
           if (event === "PASSWORD_RECOVERY") {
             setIsRecovery(true);
@@ -52,7 +52,6 @@ export default function ResetPassword() {
 
     setSubmitting(true);
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.auth.updateUser({ password });
       if (error) {
         setError(error.message || "Failed to update password.");

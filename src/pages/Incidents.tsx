@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Navigate, Link } from "react-router-dom";
 import { useCallback, useEffect, useState } from "react";
@@ -75,7 +76,6 @@ export default function Incidents() {
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { data } = await supabase.from("alerts").select("*").order("created_at", { ascending: false }).limit(500);
       if (data) setAlerts(data as Alert[]);
     } catch {
@@ -92,7 +92,6 @@ export default function Incidents() {
     let channel: any;
     (async () => {
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
         channel = supabase.channel("incidents-alerts-rt").on("postgres_changes", { event: "*", schema: "public", table: "alerts" }, () => fetchAlerts()).subscribe();
       } catch {}
     })();

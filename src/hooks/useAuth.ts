@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { isSupabaseConfigured, type AuthMode } from "@/lib/authMode";
 import { getStoredAuthMode, setStoredAuthMode, getDemoSession, setDemoSession, clearDemoSession } from "@/lib/authContext";
 import { DEMO_USERS, type DemoUser } from "@/lib/mockData";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AppRole = "admin" | "viewer" | "user";
 
@@ -9,6 +10,11 @@ export interface AuthUser {
   id: string;
   email: string;
 }
+
+type SignUpResult = {
+  error: any | null;
+  needsEmailConfirmation?: boolean;
+};
 
 export function useAuth() {
   const [authMode, setAuthModeState] = useState<AuthMode>(getStoredAuthMode);
@@ -20,6 +26,29 @@ export function useAuth() {
   const isAdmin = role === "admin";
   const isViewer = role === "viewer";
   const hasAccess = isAdmin || isViewer;
+
+  const ensureCurrentUserRecord = useCallback(async (authUser: { id: string; email?: string | null; user_metadata?: Record<string, any> }, desiredRole: AppRole = "user") => {
+    const safeRole = ["admin", "viewer", "user"].includes(desiredRole) ? desiredRole : "user";
+
+    await supabase.from("profiles").upsert(
+      { user_id: authUser.id, email: authUser.email ?? "" },
+      { onConflict: "user_id" },
+    );
+
+    const { data: existingRoles } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", authUser.id)
+      .limit(1);
+
+    if (existingRoles && existingRoles.length > 0) {
+      return existingRoles[0].role as AppRole;
+    }
+
+    await supabase.from("user_roles").insert({ user_id: authUser.id, role: safeRole });
+
+    return safeRole;
+  }, []);
 
   const setAuthMode = useCallback((mode: AuthMode) => {
     setStoredAuthMode(mode);
@@ -53,29 +82,23 @@ export function useAuth() {
 
     const initSupabase = async () => {
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
-
         // Listener first
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
           if (!mounted) return;
           if (session?.user) {
             setUser({ id: session.user.id, email: session.user.email ?? "" });
-            // Fetch role async
-            supabase
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", session.user.id)
-              .then(({ data }) => {
+            const metadataRole = session.user.user_metadata?.desired_role as AppRole | undefined;
+            ensureCurrentUserRecord(session.user, metadataRole ?? "user")
+              .then((resolvedRole) => {
                 if (!mounted) return;
-                if (data && data.length > 0) {
-                  const roles = data.map((r: any) => r.role as AppRole);
-                  if (roles.includes("admin")) setRole("admin");
-                  else if (roles.includes("viewer")) setRole("viewer");
-                  else setRole("user");
-                } else {
-                  setRole("user");
-                }
-                setIsLoading(false);
+                setRole(resolvedRole);
+              })
+              .catch(() => {
+                if (!mounted) return;
+                setRole("user");
+              })
+              .finally(() => {
+                if (mounted) setIsLoading(false);
               });
           } else {
             setUser(null);
@@ -106,18 +129,14 @@ export function useAuth() {
         };
       } catch (err) {
         console.warn("[useAuth] Supabase init failed:", err);
-        if (mounted) {
-          // Don't auto-switch to demo if user explicitly chose "real" mode
-          // Just stop loading and let them retry or switch manually
-          setIsLoading(false);
-        }
+        if (mounted) setIsLoading(false);
       }
     };
 
     initSupabase();
 
     return () => { mounted = false; };
-  }, [authMode, supabaseAvailable, setAuthMode]);
+  }, [authMode, supabaseAvailable, setAuthMode, ensureCurrentUserRecord]);
 
   // ─── Demo Sign In ───
   const demoSignIn = useCallback((demoUser: DemoUser) => {
@@ -139,23 +158,21 @@ export function useAuth() {
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return { error };
     } catch (err: any) {
-      return { error: { message: "Network error — please check your connection." } as any };
+      return { error: { message: err?.message || "Network error — please check your connection." } as any };
     }
   }, [authMode, demoSignIn]);
 
   // ─── Real Sign Up ───
-  const signUp = useCallback(async (email: string, password: string, desiredRole: "admin" | "viewer" = "admin") => {
+  const signUp = useCallback(async (email: string, password: string, desiredRole: "admin" | "viewer" = "admin"): Promise<SignUpResult> => {
     if (authMode === "demo") {
       return { error: { message: "Sign up is not available in demo mode." } as any };
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -163,11 +180,20 @@ export function useAuth() {
           data: { desired_role: desiredRole },
         },
       });
-      return { error };
+      if (error) return { error };
+
+      if (data.session?.user) {
+        const resolvedRole = await ensureCurrentUserRecord(data.session.user, desiredRole);
+        setUser({ id: data.session.user.id, email: data.session.user.email ?? email });
+        setRole(resolvedRole);
+        return { error: null, needsEmailConfirmation: false };
+      }
+
+      return { error: null, needsEmailConfirmation: true };
     } catch (err: any) {
-      return { error: { message: "Network error — please check your connection." } as any };
+      return { error: { message: err?.message || "Network error — please check your connection." } as any };
     }
-  }, [authMode]);
+  }, [authMode, ensureCurrentUserRecord]);
 
   // ─── Sign Out ───
   const signOut = useCallback(async () => {
@@ -179,7 +205,6 @@ export function useAuth() {
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       await supabase.auth.signOut();
     } catch {
       // Force local cleanup

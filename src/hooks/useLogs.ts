@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import { useState, useEffect, useCallback } from "react";
 import { isSupabaseConfigured } from "@/lib/authMode";
 import { getStoredAuthMode } from "@/lib/authContext";
@@ -28,7 +29,6 @@ export function useLogs() {
     }
 
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       let query = supabase.from("system_logs").select("*").order("created_at", { ascending: false }).limit(200);
       if (levelFilter !== "all") query = query.eq("level", levelFilter);
       if (sourceFilter !== "all") query = query.eq("source", sourceFilter);
@@ -57,7 +57,6 @@ export function useLogs() {
     let channel: any;
     (async () => {
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
         channel = supabase
           .channel("system-logs-realtime")
           .on("postgres_changes", { event: "INSERT", schema: "public", table: "system_logs" }, (payload: any) => {

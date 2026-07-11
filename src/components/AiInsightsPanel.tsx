@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { isSupabaseConfigured } from "@/lib/authMode";
 import { getStoredAuthMode } from "@/lib/authContext";
@@ -57,7 +58,6 @@ export function AiInsightsPanel() {
         return;
       }
 
-      const { supabase } = await import("@/integrations/supabase/client");
       const { data, error } = await supabase.functions.invoke("ai-analyze");
       if (error) throw error;
       if (data?.error) throw new Error(data.error);

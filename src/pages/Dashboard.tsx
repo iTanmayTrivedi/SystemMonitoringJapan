@@ -1,3 +1,4 @@
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLogs } from "@/hooks/useLogs";
 import { useSystemStats } from "@/hooks/useSystemStats";
@@ -90,7 +91,6 @@ export default function Dashboard() {
     if (isDemo) { toast.success("Sample logs refreshed (demo mode)"); return; }
     setGenerating(true);
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const res = await supabase.functions.invoke("generate-logs");
       if (res.error) throw res.error;
       toast.success("Sample logs generated");
@@ -102,7 +102,6 @@ export default function Dashboard() {
     if (isDemo) { toast.success("Demo data refreshed"); return; }
     setResetting(true);
     try {
-      const { supabase } = await import("@/integrations/supabase/client");
       const { error } = await supabase.functions.invoke("demo-login", { body: { action: "reset" } });
       if (error) throw error;
       toast.success("Demo data reset");
