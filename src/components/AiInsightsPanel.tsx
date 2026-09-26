@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { isSupabaseConfigured } from "@/lib/authMode";
+import { generateMockLogs, generateMockAlerts, generateMockMetricHistory } from "@/lib/mockData";
 import { getStoredAuthMode } from "@/lib/authContext";
 import { Brain, Sparkles, AlertTriangle, Lightbulb, TrendingUp, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,8 +50,8 @@ export function AiInsightsPanel() {
   const runAnalysis = async () => {
     setLoading(true);
     try {
-      if (isDemo) {
-        // Simulate delay
+      if (isDemo && !isSupabaseConfigured()) {
+        // No backend available at all — fall back to sample output
         await new Promise((r) => setTimeout(r, 1500));
         setAnalysis(MOCK_ANALYSIS);
         setLastUpdated(new Date());
@@ -58,7 +59,19 @@ export function AiInsightsPanel() {
         return;
       }
 
-      const { data, error } = await supabase.functions.invoke("ai-analyze");
+      const { data, error } = await supabase.functions.invoke(
+        "ai-analyze",
+        isDemo
+          ? {
+              body: {
+                demo: true,
+                logs: generateMockLogs(80),
+                alerts: generateMockAlerts(12),
+                metrics: generateMockMetricHistory(30).map((m: any) => ({ ...m, recorded_at: m.recorded_at ?? m.time })),
+              },
+            }
+          : undefined,
+      );
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setAnalysis(data as AiAnalysis);

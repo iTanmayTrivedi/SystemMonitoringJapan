@@ -15,42 +15,53 @@ serve(async (req) => {
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
     if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured");
 
-    const authHeader = req.headers.get("Authorization");
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+
+    const authHeader = req.headers.get("Authorization") ?? "";
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader! } } }
+      { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Verify auth
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !user) {
+    let user = null;
+    if (authHeader) {
+      const { data } = await supabase.auth.getUser();
+      user = data?.user ?? null;
+    }
+
+    let logs: any[] | null = null;
+    let alerts: any[] | null = null;
+    let metrics: any[] | null = null;
+
+    if (user) {
+      ({ data: logs } = await supabase
+        .from("system_logs")
+        .select("level, source, message, created_at")
+        .order("created_at", { ascending: false })
+        .limit(200));
+      ({ data: alerts } = await supabase
+        .from("alerts")
+        .select("severity, message, metric, value, threshold, source, created_at, resolved_at, acknowledged")
+        .order("created_at", { ascending: false })
+        .limit(50));
+      ({ data: metrics } = await supabase
+        .from("metric_snapshots")
+        .select("cpu, memory, disk, network, recorded_at")
+        .order("recorded_at", { ascending: false })
+        .limit(30));
+    } else if (body?.demo && Array.isArray(body.logs)) {
+      // Demo mode: analyze client-provided sample data (capped)
+      logs = body.logs.slice(0, 200);
+      alerts = Array.isArray(body.alerts) ? body.alerts.slice(0, 50) : [];
+      metrics = Array.isArray(body.metrics) ? body.metrics.slice(0, 30) : [];
+    } else {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Fetch recent logs
-    const { data: logs } = await supabase
-      .from("system_logs")
-      .select("level, source, message, created_at")
-      .order("created_at", { ascending: false })
-      .limit(200);
-
-    // Fetch recent alerts
-    const { data: alerts } = await supabase
-      .from("alerts")
-      .select("severity, message, metric, value, threshold, source, created_at, resolved_at, acknowledged")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    // Fetch latest metrics
-    const { data: metrics } = await supabase
-      .from("metric_snapshots")
-      .select("cpu, memory, disk, network, recorded_at")
-      .order("recorded_at", { ascending: false })
-      .limit(30);
 
     const logSummary = (logs || []).reduce(
       (acc: Record<string, Record<string, number>>, l: any) => {
@@ -96,42 +107,51 @@ ${(metrics || []).slice(0, 10).map((m: any) => `CPU:${m.cpu}% MEM:${m.memory}% D
 
 Analyze this data and respond with the JSON schema specified.`;
 
-    const aiResponse = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
+    // Try Groq models in order; skip ones that are retired/unavailable (404/400 model errors)
+    const MODELS = [
+      Deno.env.get("GROQ_MODEL"),
+      "openai/gpt-oss-120b",
+      "llama-3.3-70b-versatile",
+      "openai/gpt-oss-20b",
+      "llama-3.1-8b-instant",
+    ].filter(Boolean) as string[];
+
+    let aiResponse: Response | null = null;
+    let lastErr = "";
+    for (const model of MODELS) {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${GROQ_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
           response_format: { type: "json_object" },
         }),
-      }
-    );
-
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
+      });
+      if (res.ok) { aiResponse = res; break; }
+      if (res.status === 429) {
         return new Response(JSON.stringify({ error: "AI rate limit exceeded. Try again shortly." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
-          status: 402,
+      if (res.status === 401 || res.status === 403) {
+        return new Response(JSON.stringify({ error: "Groq API key is invalid or lacks access." }), {
+          status: res.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errText = await aiResponse.text();
-      console.error("AI error:", aiResponse.status, errText);
-      throw new Error("AI gateway error");
+      lastErr = await res.text();
+      console.error("AI error:", model, res.status, lastErr);
     }
+
+    if (!aiResponse) throw new Error("AI provider error — no available Groq model");
 
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || "";
