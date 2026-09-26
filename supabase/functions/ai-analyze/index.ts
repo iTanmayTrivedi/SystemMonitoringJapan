@@ -15,42 +15,53 @@ serve(async (req) => {
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
     if (!GROQ_API_KEY) throw new Error("GROQ_API_KEY is not configured");
 
-    const authHeader = req.headers.get("Authorization");
+    let body: any = {};
+    try { body = await req.json(); } catch { body = {}; }
+
+    const authHeader = req.headers.get("Authorization") ?? "";
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader! } } }
+      { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Verify auth
-    const { data: { user }, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !user) {
+    let user = null;
+    if (authHeader) {
+      const { data } = await supabase.auth.getUser();
+      user = data?.user ?? null;
+    }
+
+    let logs: any[] | null = null;
+    let alerts: any[] | null = null;
+    let metrics: any[] | null = null;
+
+    if (user) {
+      ({ data: logs } = await supabase
+        .from("system_logs")
+        .select("level, source, message, created_at")
+        .order("created_at", { ascending: false })
+        .limit(200));
+      ({ data: alerts } = await supabase
+        .from("alerts")
+        .select("severity, message, metric, value, threshold, source, created_at, resolved_at, acknowledged")
+        .order("created_at", { ascending: false })
+        .limit(50));
+      ({ data: metrics } = await supabase
+        .from("metric_snapshots")
+        .select("cpu, memory, disk, network, recorded_at")
+        .order("recorded_at", { ascending: false })
+        .limit(30));
+    } else if (body?.demo && Array.isArray(body.logs)) {
+      // Demo mode: analyze client-provided sample data (capped)
+      logs = body.logs.slice(0, 200);
+      alerts = Array.isArray(body.alerts) ? body.alerts.slice(0, 50) : [];
+      metrics = Array.isArray(body.metrics) ? body.metrics.slice(0, 30) : [];
+    } else {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    // Fetch recent logs
-    const { data: logs } = await supabase
-      .from("system_logs")
-      .select("level, source, message, created_at")
-      .order("created_at", { ascending: false })
-      .limit(200);
-
-    // Fetch recent alerts
-    const { data: alerts } = await supabase
-      .from("alerts")
-      .select("severity, message, metric, value, threshold, source, created_at, resolved_at, acknowledged")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    // Fetch latest metrics
-    const { data: metrics } = await supabase
-      .from("metric_snapshots")
-      .select("cpu, memory, disk, network, recorded_at")
-      .order("recorded_at", { ascending: false })
-      .limit(30);
 
     const logSummary = (logs || []).reduce(
       (acc: Record<string, Record<string, number>>, l: any) => {
