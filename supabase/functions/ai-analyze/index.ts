@@ -107,42 +107,51 @@ ${(metrics || []).slice(0, 10).map((m: any) => `CPU:${m.cpu}% MEM:${m.memory}% D
 
 Analyze this data and respond with the JSON schema specified.`;
 
-    const aiResponse = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
+    // Try Groq models in order; skip ones that are retired/unavailable (404/400 model errors)
+    const MODELS = [
+      Deno.env.get("GROQ_MODEL"),
+      "openai/gpt-oss-120b",
+      "llama-3.3-70b-versatile",
+      "openai/gpt-oss-20b",
+      "llama-3.1-8b-instant",
+    ].filter(Boolean) as string[];
+
+    let aiResponse: Response | null = null;
+    let lastErr = "";
+    for (const model of MODELS) {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${GROQ_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
+          model,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
           response_format: { type: "json_object" },
         }),
-      }
-    );
-
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
+      });
+      if (res.ok) { aiResponse = res; break; }
+      if (res.status === 429) {
         return new Response(JSON.stringify({ error: "AI rate limit exceeded. Try again shortly." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
-          status: 402,
+      if (res.status === 401 || res.status === 403) {
+        return new Response(JSON.stringify({ error: "Groq API key is invalid or lacks access." }), {
+          status: res.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const errText = await aiResponse.text();
-      console.error("AI error:", aiResponse.status, errText);
-      throw new Error("AI gateway error");
+      lastErr = await res.text();
+      console.error("AI error:", model, res.status, lastErr);
     }
+
+    if (!aiResponse) throw new Error("AI provider error — no available Groq model");
 
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || "";
