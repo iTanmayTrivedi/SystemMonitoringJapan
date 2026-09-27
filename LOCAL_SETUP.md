@@ -1,8 +1,7 @@
 # Local Development Setup (Mac) | ローカル開発手順
 
-Lovable's hosted preview keeps using **Lovable Cloud** automatically.
-Your local clone uses **your own Supabase project** via a local `.env` file
-that is git-ignored — the two never collide.
+The app uses your own Supabase project. Your local clone reads its connection
+settings from a git-ignored `.env` file.
 
 ---
 
@@ -19,13 +18,13 @@ bun install        # or: npm install
 Create a file named `.env` in the project root with **your** Supabase keys:
 
 ```env
-VITE_SUPABASE_URL="https://jskxwnlflroyvtfbkuxd.supabase.co"
-VITE_SUPABASE_PUBLISHABLE_KEY="sb_publishable_sohUvwWcNTtIO4w29yFNxA_0EbakIVD"
-VITE_SUPABASE_PROJECT_ID="jskxwnlflroyvtfbkuxd"
+VITE_SUPABASE_URL="https://uobbaqohcnjsnjeqasqz.supabase.co"
+VITE_SUPABASE_PUBLISHABLE_KEY="<your publishable key from Supabase>"
+VITE_SUPABASE_PROJECT_ID="uobbaqohcnjsnjeqasqz"
 ```
 
 `.env` is already in `.gitignore`, so this file stays on your machine.
-The Lovable preview keeps using its own Cloud-injected values.
+Hosted previews use the connection values configured for that deployment.
 
 ## 3. Provision your Supabase database
 
@@ -37,8 +36,8 @@ This creates (idempotently):
 - Enums: `app_role`, `alert_severity`
 - Tables: `profiles`, `user_roles`, `system_logs`, `alerts`, `alert_rules`, `metric_snapshots`
 - Function: `has_role()` (SECURITY DEFINER — prevents RLS recursion)
-- Trigger: `on_auth_user_created` → auto-creates profile + role on signup
-- All RLS policies + GRANTs (matches the live Lovable Cloud schema 1:1)
+- The app initializes its own profile + role on first sign-in
+- All RLS policies + GRANTs
 - Realtime publication for `system_logs`, `alerts`, `metric_snapshots`
 
 ## 4. Configure Auth in Supabase dashboard
@@ -62,15 +61,14 @@ Only needed if you want the AI / log-generator features to work locally.
 ```bash
 brew install supabase/tap/supabase     # one-time
 supabase login
-supabase link --project-ref jskxwnlflroyvtfbkuxd
+supabase link --project-ref uobbaqohcnjsnjeqasqz
 supabase functions deploy ai-analyze
 supabase functions deploy generate-logs
 supabase functions deploy demo-login
 ```
 
-For `ai-analyze` you'll need a `LOVABLE_API_KEY` secret. In the Supabase
-dashboard → **Edge Functions → Secrets**, add it. Without it, the AI
-Insights panel will gracefully fall back to mock output.
+For `ai-analyze` you'll need a `GROQ_API_KEY` secret. Add it in the Supabase
+dashboard → **Edge Functions → Secrets**. Without it, AI analysis will show an error.
 
 ## 6. Run the app
 
@@ -84,8 +82,7 @@ bun run dev        # or: npm run dev
 - Open `http://localhost:8080/auth`
 - Switch to **Real Login** → **Sign up**
 - Pick **Admin** as your role → submit
-- The `on_auth_user_created` trigger will create your `profiles` row and
-  insert `admin` into `user_roles` automatically
+- The app creates your `profiles` row and initial `user_roles` entry on sign-in
 - You're now in. **Demo Mode** also works offline with no Supabase at all.
 
 ---
@@ -105,5 +102,5 @@ bun run dev        # or: npm run dev
 ## TL;DR
 
 ✅ **Yes — your project will run on your own Supabase locally.**
-The Lovable preview is unaffected because `.env` is local-only and
-git-ignored, while Lovable injects its own Cloud env vars at build time.
+The local `.env` is git-ignored. Configure deployment environment variables
+separately when hosting elsewhere.
