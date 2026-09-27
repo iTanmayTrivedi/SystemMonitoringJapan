@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { isSupabaseConfigured, type AuthMode } from "@/lib/authMode";
-import { getStoredAuthMode, setStoredAuthMode, getDemoSession, setDemoSession, clearDemoSession } from "@/lib/authContext";
+import { getStoredAuthMode, setStoredAuthMode, getDemoSession, setDemoSession, clearDemoSession, DEMO_SESSION_CHANGED } from "@/lib/authContext";
 import { DEMO_USERS, type DemoUser } from "@/lib/mockData";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -26,6 +26,18 @@ export function useAuth() {
   const isAdmin = role === "admin";
   const isViewer = role === "viewer";
   const hasAccess = isAdmin || isViewer;
+
+  // Multiple screens use this hook; synchronize demo sign-in across instances.
+  useEffect(() => {
+    if (authMode !== "demo") return;
+    const syncDemoSession = () => {
+      const session = getDemoSession();
+      setUser(session ? { id: session.userId, email: session.email } : null);
+      setRole(session ? session.role as AppRole : "user");
+    };
+    window.addEventListener(DEMO_SESSION_CHANGED, syncDemoSession);
+    return () => window.removeEventListener(DEMO_SESSION_CHANGED, syncDemoSession);
+  }, [authMode]);
 
   const ensureCurrentUserRecord = useCallback(async (authUser: { id: string; email?: string | null; user_metadata?: Record<string, any> }, desiredRole: AppRole = "user") => {
     const safeRole = ["admin", "viewer", "user"].includes(desiredRole) ? desiredRole : "user";

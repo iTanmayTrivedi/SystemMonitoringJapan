@@ -15,7 +15,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-100%25-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind](https://img.shields.io/badge/Tailwind-CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![Supabase](https://img.shields.io/badge/Supabase-Realtime-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
-[![Gemini](https://img.shields.io/badge/AI-Gemini%203%20Flash-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)](https://ai.google.dev)
+[![Groq](https://img.shields.io/badge/AI-Groq-F55036?style=flat-square)](https://groq.com)
 [![i18n](https://img.shields.io/badge/i18n-EN%20%2F%20日本語-CD3232?style=flat-square)](#)
 [![License](https://img.shields.io/badge/License-MIT-000000?style=flat-square)](#)
 
@@ -102,7 +102,7 @@
 - **Hybrid authentication** — email/password + Google OAuth + Offline Mock Demo
 - **Internationalization** — Japanese-first bilingual UI with a one-click toggle
 - **Real-time pipelines** — Supabase Realtime channels for logs, alerts, and metric snapshots
-- **AI integration** — Gemini 3 Flash via the Lovable AI Gateway (no client-side key exposure)
+- **AI integration** — Groq via a Supabase Edge Function (no client-side key exposure)
 - **Production-grade UX** — ⌘K command palette, Recharts dashboards, Framer Motion transitions, light/dark theme
 
 ---
@@ -188,7 +188,7 @@ context fast enough to act. None of that is covered by a generic CRUD tutorial.
 A production-grade observability platform — three-tier RBAC (Admin / Moderator
 / Viewer), real-time log + metric streaming over Supabase Realtime, temporal
 incident grouping that collapses alert noise by ~90%, an AI diagnostic suite
-(Gemini 3 Flash via Lovable AI Gateway) for log summarization and anomaly
+(Groq via a Supabase Edge Function) for log summarization and anomaly
 detection, and a fully bilingual EN / 日本語 operator UI with a ⌘K command
 palette.
 
@@ -196,7 +196,7 @@ palette.
 プロダクショングレードのオブザーバビリティプラットフォーム。
 3 層 RBAC（管理者・モデレーター・閲覧者）、Supabase Realtime による
 ログとメトリクスのリアルタイム配信、アラートノイズを約 90% 削減する
-時間的インシデントグルーピング、Lovable AI Gateway 経由の Gemini 3 Flash
+時間的インシデントグルーピング、Supabase Edge Function 経由の Groq
 による AI 診断スイート（ログ要約・異常検知）、そして ⌘K コマンドパレットを
 備えた完全バイリンガル（EN / 日本語）の運用 UI を実装しました。
 
@@ -242,7 +242,7 @@ palette.
 | **Frontend** | React 18 · TypeScript · Vite · Tailwind CSS · shadcn/ui |
 | **Charts & Motion** | Recharts · Framer Motion |
 | **Backend** | Supabase — PostgreSQL · Auth · Realtime · Edge Functions |
-| **AI** | Gemini 3 Flash via Lovable AI Gateway |
+| **AI** | Groq via Supabase Edge Function |
 | **State / Data** | TanStack Query (React Query) + Supabase Realtime subscriptions |
 | **i18n** | Custom EN / 日本語 dictionary with live toggle |
 | **Tooling** | Vitest · ESLint · Bun |
@@ -262,7 +262,7 @@ palette.
 └────────────────────────────┬────────────────────────────┘
                              │  HTTPS / WebSocket
 ┌────────────────────────────┴────────────────────────────┐
-│  Supabase Backend  (Lovable Cloud)                      │
+│  Supabase Backend  (your own project)                   │
 │  ├─ PostgreSQL  · 6 tables · RLS via has_role()         │
 │  ├─ Realtime    · logs · alerts · metric_snapshots      │
 │  ├─ Auth        · email/password + Google OAuth         │
@@ -293,7 +293,7 @@ palette.
 
 ## 🧠 Key Technical Decisions | 技術的な意思決定
 
-### Why Supabase (Lovable Cloud)?
+### Why Supabase?
 - PostgreSQL with RLS — **security enforced at the data layer**, not just the API
 - Realtime channels remove the need for a custom WebSocket server
 - Edge Functions co-locate AI calls with the database
@@ -308,7 +308,7 @@ palette.
 - Naïve alerting fires once per threshold breach — a flapping service emits hundreds of alerts per minute
 - Grouping alerts by **time window + signature** cuts alert noise by **~90%** and produces a real MTTR number
 
-### Why Gemini via the Lovable AI Gateway?
+### Why Groq via a Supabase Edge Function?
 - No client-side key exposure
 - The Edge Function can rate-limit, cache, and audit AI calls
 - Swapping models is a one-line change
