@@ -21,10 +21,9 @@
 
 <br/>
 
-🌐 **[Live Demo](https://your-url.com)** &nbsp;·&nbsp;
-🎬 **[Demo Video](https://youtube.com/your-video)** &nbsp;·&nbsp;
+🌐 **[Live Demo](https://sysmonitor.tanmaytrivedi.dev)** &nbsp;·&nbsp;
 📖 **[Case Study](https://tanmaytrivedi.dev/projects/sysmonitor)** &nbsp;·&nbsp;
-💼 **[LinkedIn](https://linkedin.com/in/tanmaytrivedi)**
+💼 **[LinkedIn](https://linkedin.com/in/itanmaytrivedi)**
 
 </div>
 
